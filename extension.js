@@ -17,11 +17,20 @@ function activate(context) {
         // The code you place here will be executed every time your command is executed
         const editor = vscode.window.activeTextEditor;
         if (editor) {
-            const gitExtension = vscode.extensions.getExtension('vscode.git').exports;
+            const gitExtension = vscode.extensions.getExtension('vscode.git')
             console.log(gitExtension)
-	        console.log(gitExtension.remote)
-            const currentLine = getCursorLine(editor)
-            vscode.window.showInformationMessage(`You are in line: ${currentLine}, and your github repo is:`);
+            if (gitExtension) {
+                const api = gitExtension.exports.getAPI(1);
+                if (api.repositories[0].state.remotes[0]) {
+                    const remoteRepo = api.repositories[0].state.remotes[0].fetchUrl
+                    const repoName = remoteRepo.match(/github\.com.(.*)\.git$/)[1];
+                    const filePath = getRelativeFileName(editor)
+                    const urlCompatibleFilePath = backToCommonSlash(filePath)
+                    const currentLine = getCursorLine(editor)
+                    const lineGithubUrl = createGithubUrl(repoName, urlCompatibleFilePath, currentLine)
+                    vscode.window.showInformationMessage(`your link is: ${lineGithubUrl}`);                
+            }
+            }
         }
         // Display a message box to the user
     });
@@ -32,7 +41,9 @@ exports.activate = activate;
 
 // this method is called when your extension is deactivated
 function deactivate() {
+
 }
+
 exports.deactivate = deactivate;
 
 
@@ -42,4 +53,21 @@ function getCursorLine(editor) {
     const position = editor.selection.active;
     const currentLine = position.line + 1;
     return currentLine
+}
+
+function getFolderName() {
+    return vscode.workspace.name
+}
+
+function getRelativeFileName(editor) {
+    let fileName = editor.document.fileName
+    return vscode.workspace.asRelativePath(fileName);
+}
+
+function backToCommonSlash(str) {
+    return str.replace('\\', '/')
+}
+
+function createGithubUrl(repoName, filePath, lineNumber) {
+    return `https://github.com/${repoName}/blob/master/${filePath}#L${lineNumber}`
 }
